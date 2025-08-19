@@ -1,11 +1,17 @@
+import math
+from collections import deque
+from datetime import datetime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
 from asteval import Interpreter
 
-app = FastAPI()
+from calculator import expand_percent
 
-# CORS middleware (still needed if you're calling this from JS)
+HISTORY_MAX = 1000
+history = deque(maxlen=HISTORY_MAX)
+
+app = FastAPI(title="Mini Calculator API")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -13,20 +19,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-aeavl = Interpreter()
-print(aeavl("10*3"))
+# ---------- Safe evaluator ----------
+aeval = Interpreter(minimal=True, usersyms={"pi": math.pi, "e": math.e})
 
-# To return a response with HTML directly from FastAPI, use HTMLResponse.
-@app.get('/', response_class=HTMLResponse)
-def read_root():
-    return """
-    <html>
-        <head>
-            <title>ITCS525</title>
-        </head>
-        <body>
-            <h1>Look ma! HTML!</h1>
-        </body>
-    </html>
-    """
 
+@app.post("/calculate")
+def calculate(expr: str):
+    try:
+        code = expand_percent(expr)
+        result = aeval(code)
+        if aeval.error:
+            msg = "; ".join(str(e.get_error()) for e in aeval.error)
+            aeval.error.clear()
+            return {"ok": False, "expr": expr, "result": "", "error": msg}
+        history.append({"timestamp": datetime.now(), "expr": expr, "result": result})
+        return {"ok": True, "expr": expr, "result": result, "error": ""}
+    except Exception as e:
+        return {"ok": False, "expr": expr, "error": str(e)}
+
+@app.get("/history")
+def get_history(limit: int | None = None):
+    return list(reversed(history))[:limit] if limit else list(reversed(history))
+
+
+@app.delete("/history")
+def del_history():
+    history.clear()
+    return {"ok": True, "cleared": True}

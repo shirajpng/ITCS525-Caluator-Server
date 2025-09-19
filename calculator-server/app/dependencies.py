@@ -1,6 +1,6 @@
 from collections import deque
 import re
-from schemas import Expression
+from app.schemas import Expression
 
 HISTORY_MAX = 1000
 history = deque(maxlen=HISTORY_MAX)
@@ -12,7 +12,7 @@ _percent_pair = re.compile(r"""
 """, re.VERBOSE)
 _number_percent = re.compile(r"(?P<n>\d+(?:\.\d+)?)%")
 
-async def expand_percent(expr_obj: Expression) -> str:
+def expand_percent(expr_obj: Expression) -> str:
 	    """Handle A op B% and standalone N% patterns."""
 	    s = expr_obj.expr
 	    while True:
@@ -33,5 +33,5 @@ async def expand_percent(expr_obj: Expression) -> str:
 	    s = _number_percent.sub(lambda m: f"({m.group('n')}/100)", s)
 	    return s
 
-async def get_history():
+def get_history():
 	return history

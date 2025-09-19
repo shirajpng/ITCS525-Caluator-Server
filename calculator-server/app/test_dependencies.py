@@ -1,91 +1,31 @@
-from fastapi.testclient import TestClient
-from main import app  # or whatever your app module is
-from collections import deque
+from app.schemas import ExpressionIn
+import pytest
+from app.dependencies import expand_percent  # import your function
 
-client = TestClient(app)
+def test_add_percent():
+    """Test addition where B% means 'B percent of A'."""
+    assert expand_percent(ExpressionIn(expr="5 + 10%")) == "5 + ((10/100)*5)"
 
-def test_basic_division():
-    r = client.post("/calculate", json={"expr": "30/4"})
-    assert r.status_code == 200
-    data = r.json()
-    assert data["ok"] is True
-    assert abs(data["result"] - 7.5) < 1e-9
+def test_subtract_percent():
+    """Test subtraction where B% means 'B percent of A'."""
+    assert expand_percent(ExpressionIn(expr="20 - 30%")) == "20 - ((30/100)*20)"
 
-def test_percent_subtraction():
-    r = client.post("/calculate", json={"expr": "100 - 6%"})
-    assert r.status_code == 200
-    data = r.json()
-    assert data["ok"] is True
-    assert abs(data["result"] - 94.0) < 1e-9
+def test_multiply_percent():
+    """Test multiplication where B% means 'B divided by 100'."""
+    assert expand_percent(ExpressionIn(expr="15 * 25%")) == "15 * (25/100)"
 
-def test_standalone_percent():
-    r = client.post("/calculate", json={"expr": "6%"})
-    assert r.status_code == 200
-    data = r.json()
-    assert data["ok"] is True
-    assert abs(data["result"] - 0.06) < 1e-9
+def test_divide_percent():
+    """Test division where B% means 'B divided by 100'."""
+    assert expand_percent(ExpressionIn(expr="40 / 50%")) == "40 / (50/100)"
 
-def test_invalid_expr_returns_ok_false():
-    r = client.post("/calculate", json={"expr": "2**(3"})
-    assert r.status_code == 200
-    data = r.json()
-    assert data["ok"] is False
-    assert "error" in data and data["error"] != ""
+def test_multiple_operations():
+    """Test expressions with multiple A op B% operations."""
+    assert expand_percent(ExpressionIn(expr="3 * 4% + 2 / 1%")) == "3 * (4/100) + 2 / (1/100)"
 
+def test_standalone_100_percent():
+    """Test standalone percentage (100%)."""
+    assert expand_percent(ExpressionIn(expr="100%")) == "(100/100)"
 
-# Test cases for the history apis
-def test_get_history_empty():
-    client.delete("/history")
-    r = client.get("/history")
-    assert r.status_code == 200
-    assert r.json() == []  # Expect an empty list
-
-def test_get_history_with_data():
-    client.post("/calculate", json={"expr": "36+36"})
-    client.post("/calculate", json={"expr": "1000+555"})
-    client.post("/calculate", json={"expr": "10001*555%"})
-    
-    r = client.get("/history")
-    assert r.status_code == 200
-    history = r.json()
-    assert len(history) == 3
-    assert history[0]["expr"] == "10001*555%"
-
-def test_get_limited_history():
-    r = client.get("/history?limit=2")
-    assert r.status_code == 200
-    history = r.json()
-    assert len(history) == 2
-
-def test_delete_history():
-    client.post("/calculate", json={"expr": "36+36"})
-    client.post("/calculate", json={"expr": "1000+555"})
-    client.post("/calculate", json={"expr": "10001*555%"})
-    
-    r = client.delete("/history")
-    assert r.status_code == 200
-    data = r.json()
-    assert data["ok"] is True
-    assert data["cleared"] is True
-
-def test_show_history_after_deleteing_distory():
-    client.post("/calculate", json={"expr": "36+36"})
-    client.post("/calculate", json={"expr": "1000+555"})
-    client.post("/calculate", json={"expr": "10001*555%"})
-    
-    r = client.delete("/history")
-    assert r.status_code == 200
-    data = r.json()
-    assert data["ok"] is True
-    assert data["cleared"] is True
-
-    r = client.get("/history")
-    assert r.status_code == 200
-    assert r.json() == []
-
-def test_delete_history_when_empty():
-    r = client.delete("/history")
-    assert r.status_code == 200
-    data = r.json()
-    assert data["ok"] is True
-    assert data["cleared"] is True
+def test_two_standalone_percents():
+    """Test expression with two standalone percentages."""
+    assert expand_percent(ExpressionIn(expr="10% + 20%")) == "(10/100) + (20/100)"

@@ -1,8 +1,8 @@
 from asteval import Interpreter
 from datetime import datetime
 from fastapi import APIRouter, Depends
-from schemas import Expression
-from dependencies import expand_percent, get_history
+from app.schemas import Expression
+from app.dependencies import expand_percent, get_history
 import math
 from typing import Annotated
 

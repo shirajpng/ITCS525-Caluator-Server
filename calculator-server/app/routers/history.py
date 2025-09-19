@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
-from schemas import CalculatorLog
-from dependencies import get_history
+from app.schemas import CalculatorLog
+from app.dependencies import get_history
 from typing import Annotated
 router = APIRouter()
 
